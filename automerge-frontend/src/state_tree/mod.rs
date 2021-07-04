@@ -12,6 +12,7 @@ use crate::{error, Path, PathElement, Primitive, Value};
 mod diffable_sequence;
 mod multivalue;
 mod resolved_path;
+mod sequence_tree;
 
 pub use multivalue::{MultiGrapheme, MultiValue};
 pub(crate) use resolved_path::SetOrInsertPayload;
