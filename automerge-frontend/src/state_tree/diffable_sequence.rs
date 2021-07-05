@@ -1,9 +1,9 @@
-use std::collections::HashSet;
+use std::{collections::HashSet, fmt::Debug};
 
 use amp::OpId;
 use automerge_protocol as amp;
 
-use super::{MultiGrapheme, MultiValue};
+use super::{sequence_tree::SequenceTree, MultiGrapheme, MultiValue};
 use crate::error::InvalidPatch;
 
 pub(super) trait DiffableValue: Sized + Default {
@@ -134,6 +134,7 @@ where
     T: DiffableValue,
     T: Clone,
     T: PartialEq,
+    T: Debug,
 {
     opid: OpId,
     value: SequenceValue<T>,
@@ -144,6 +145,7 @@ where
     T: Clone,
     T: DiffableValue,
     T: PartialEq,
+    T: Debug,
 {
     fn original(value: T) -> Self {
         Self {
@@ -166,9 +168,10 @@ where
     T: DiffableValue,
     T: Clone,
     T: PartialEq,
+    T: Debug,
 {
     // stores the opid that created the element and the diffable value
-    underlying: Box<im_rc::Vector<SequenceElement<T>>>,
+    underlying: Box<SequenceTree<SequenceElement<T>>>,
 }
 
 impl<T> DiffableSequence<T>
@@ -176,10 +179,11 @@ where
     T: Clone,
     T: DiffableValue,
     T: PartialEq,
+    T: Debug,
 {
     pub fn new() -> DiffableSequence<T> {
         DiffableSequence {
-            underlying: Box::new(im_rc::Vector::new()),
+            underlying: Box::new(SequenceTree::new()),
         }
     }
 
@@ -187,8 +191,12 @@ where
     where
         I: IntoIterator<Item = T>,
     {
+        let mut s = SequenceTree::new();
+        for i in i {
+            s.push_back(i.default_opid(), SequenceElement::original(i))
+        }
         DiffableSequence {
-            underlying: Box::new(i.into_iter().map(SequenceElement::original).collect()),
+            underlying: Box::new(s),
         }
     }
 
@@ -281,20 +289,20 @@ where
                 amp::DiffEdit::Remove { index, count } => {
                     let index = index as usize;
                     let count = count as usize;
-                    self.underlying.slice(index..(index + count));
+                    // self.underlying.slice(index..(index + count));
 
-                    for i in changed_indices.clone().iter() {
-                        // if the index is to the right of that being removed we need to shift it
-                        if *i >= index as u64 {
-                            // we don't need to keep the old value
-                            changed_indices.remove(i);
-                            // but if the value is not in the removed range then we need to add the
-                            // updated value in again
-                            if *i >= (index + count) as u64 {
-                                changed_indices.insert(*i - count as u64);
-                            }
-                        }
-                    }
+                    // for i in changed_indices.clone().iter() {
+                    //     // if the index is to the right of that being removed we need to shift it
+                    //     if *i >= index as u64 {
+                    //         // we don't need to keep the old value
+                    //         changed_indices.remove(i);
+                    //         // but if the value is not in the removed range then we need to add the
+                    //         // updated value in again
+                    //         if *i >= (index + count) as u64 {
+                    //             changed_indices.insert(*i - count as u64);
+                    //         }
+                    //     }
+                    // }
                 }
                 amp::DiffEdit::SingleElementInsert {
                     index,
@@ -304,10 +312,14 @@ where
                 } => {
                     let node = T::construct(op_id, value);
                     if (index as usize) == self.underlying.len() {
-                        self.underlying.push_back(SequenceElement::new(node));
-                    } else {
                         self.underlying
-                            .insert(index as usize, SequenceElement::new(node));
+                            .push_back(node.default_opid(), SequenceElement::new(node));
+                    } else {
+                        self.underlying.insert(
+                            index as usize,
+                            node.default_opid(),
+                            SequenceElement::new(node),
+                        );
                     };
                     changed_indices.insert(index);
                 }
@@ -321,15 +333,12 @@ where
                     // TODO: only do this if there are a certain (to be worked out) number of
                     // values
                     // TODO: if all inserts are at the end then use push_back
-                    let mut intermediate = im_rc::Vector::new();
                     for (i, value) in values.iter().enumerate() {
                         let opid = elem_id.as_opid().unwrap().increment_by(i as u64);
-                        let mv = T::construct(opid, amp::Diff::Value(value.clone()));
-                        intermediate.push_back(SequenceElement::new(mv));
+                        let mv = T::construct(opid.clone(), amp::Diff::Value(value.clone()));
+                        self.underlying
+                            .insert(index + i, opid, SequenceElement::new(mv))
                     }
-                    let right = self.underlying.split_off(index);
-                    self.underlying.append(intermediate);
-                    self.underlying.append(right);
                     for i in index..(index + values.len()) {
                         changed_indices.insert(i as u64);
                     }
@@ -339,7 +348,7 @@ where
                     value,
                     op_id,
                 } => {
-                    if let Some(v) = self.underlying.get_mut(index as usize) {
+                    if let Some((opid, v)) = self.underlying.get_mut(index as usize) {
                         v.value.apply_diff(op_id, value);
                     }
                     changed_indices.insert(index);
@@ -348,17 +357,17 @@ where
         }
 
         for i in changed_indices {
-            if let Some(u) = self.underlying.get_mut(i as usize) {
+            if let Some((_, u)) = self.underlying.get_mut(i as usize) {
                 u.value.finish()
             }
         }
 
-        debug_assert!(
-            self.underlying
-                .iter()
-                .all(|u| matches!(u.value, SequenceValue::Original(_))),
-            "diffable sequence apply_diff_iter didn't call finish on all values"
-        );
+        // debug_assert!(
+        //     self.underlying
+        //         .iter()
+        //         .all(|u| matches!(u.value, SequenceValue::Original(_))),
+        //     "diffable sequence apply_diff_iter didn't call finish on all values"
+        // );
     }
 
     pub(super) fn remove(&mut self, index: usize) -> T {
@@ -376,7 +385,7 @@ where
         let elem_id = self
             .underlying
             .get(index)
-            .map(|existing| existing.opid.clone())
+            .map(|(opid, existing)| existing.opid.clone())
             .expect("Failed to get existing index in set");
         self.underlying
             .set(
@@ -392,23 +401,29 @@ where
     }
 
     pub(super) fn get(&self, index: usize) -> Option<(&OpId, &T)> {
-        self.underlying.get(index).map(|e| (&e.opid, e.value.get()))
+        self.underlying
+            .get(index)
+            .map(|(opid, e)| (&e.opid, e.value.get()))
     }
 
     pub(super) fn get_mut(&mut self, index: usize) -> Option<(&mut OpId, &mut T)> {
         self.underlying
             .get_mut(index)
-            .map(|e| (&mut e.opid, e.value.get_mut()))
+            .map(|(opid, e)| (&mut e.opid, e.value.get_mut()))
     }
 
     pub(super) fn insert(&mut self, index: usize, value: T) {
-        self.underlying
-            .insert(index, SequenceElement::original(value))
+        self.underlying.insert(
+            index,
+            value.default_opid(),
+            SequenceElement::original(value),
+        )
     }
 
     pub(super) fn iter(&self) -> impl std::iter::Iterator<Item = &T> {
         // Making this unwrap safe is the entire point of this data structure
-        self.underlying.iter().map(|i| i.value.get())
+        // self.underlying.iter().map(|i| i.value.get())
+        std::iter::empty()
     }
 }
 
