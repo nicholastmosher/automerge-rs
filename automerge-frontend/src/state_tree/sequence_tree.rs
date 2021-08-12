@@ -39,6 +39,7 @@ where
     }
 
     pub fn insert(&mut self, index: usize, opid: OpId, element: T) {
+        println!("insert {}", index);
         self.root_node.insert(index, opid, element);
     }
 
@@ -56,6 +57,7 @@ where
     }
 
     pub fn remove(&mut self, index: usize) -> T {
+        println!("remove {}", index);
         self.root_node.remove(index)
     }
 
@@ -76,12 +78,12 @@ where
     }
 
     pub fn insert(&mut self, index: usize, opid: OpId, element: T) -> Option<(usize, OpId, T)> {
-        println!("insert");
         match self {
             SequenceTreeNode::Leaf {
                 opid: leaf_opid,
                 elements,
             } => {
+                assert!(!elements.is_empty());
                 if leaf_opid.1 == opid.1 {
                     // has our actor, see if the sequence counter fits in
                     if index == elements.len() {
@@ -118,9 +120,10 @@ where
                                 mut elements,
                             } = *right_child.unwrap()
                             {
+                                assert!(!elements.is_empty());
                                 let right_elements = elements.split_off(index);
                                 dbg!("{} {}", elements.len(), right_elements.len());
-                                let len = elements.len() + right_elements.len();
+                                let len = elements.len() + right_elements.len() + 1;
 
                                 let l = if elements.is_empty() {
                                     None
@@ -181,9 +184,10 @@ where
                             mut elements,
                         } = *left_child.unwrap()
                         {
+                            assert!(!elements.is_empty());
                             let right_elements = elements.split_off(index);
                             dbg!("{} {}", elements.len(), right_elements.len());
-                            let len = elements.len() + right_elements.len();
+                            let len = elements.len() + right_elements.len() + 1;
 
                             let l = if elements.is_empty() {
                                 None
@@ -237,7 +241,6 @@ where
     }
 
     pub fn remove(&mut self, index: usize) -> T {
-        println!("remove");
         match self {
             SequenceTreeNode::Leaf {
                 opid: _,
@@ -248,9 +251,10 @@ where
             SequenceTreeNode::Node { left, right, len } => {
                 let left_len = left.as_ref().map_or(0, |l| l.len());
                 *len -= 1;
-                if index > left_len {
+                if index >= left_len {
                     if let Some(right_child) = right {
                         if let SequenceTreeNode::Leaf { opid, elements } = &mut **right_child {
+                            assert!(!elements.is_empty());
                             dbg!(index - left_len + 1);
                             dbg!(elements.len());
                             if index - left_len + 1 == elements.len() {
@@ -298,6 +302,7 @@ where
                     }
                 } else if let Some(left_child) = left {
                     if let SequenceTreeNode::Leaf { opid, elements } = &mut **left_child {
+                        assert!(!elements.is_empty());
                         dbg!(index + 1);
                         dbg!(elements.len());
                         if index + 1 == elements.len() {
@@ -347,6 +352,7 @@ where
     pub fn set(&mut self, index: usize, element: T) -> T {
         match self {
             SequenceTreeNode::Leaf { opid: _, elements } => {
+                assert!(!elements.is_empty());
                 let old = elements.get_mut(index).unwrap();
                 std::mem::replace(old, element)
             }
