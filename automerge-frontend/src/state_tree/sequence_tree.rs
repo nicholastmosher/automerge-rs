@@ -12,6 +12,7 @@ enum SequenceTreeNode<T> {
     Leaf {
         opid: OpId,
         element: T,
+        len: usize,
     },
     Node {
         left: Option<Box<SequenceTreeNode<T>>>,
@@ -70,7 +71,7 @@ where
 {
     pub fn len(&self) -> usize {
         match self {
-            SequenceTreeNode::Leaf { .. } => 1,
+            SequenceTreeNode::Leaf { len, .. } => *len,
             SequenceTreeNode::Node { len, .. } => *len,
         }
     }
@@ -80,6 +81,7 @@ where
             SequenceTreeNode::Leaf {
                 opid: _,
                 element: _,
+                len: _,
             } => {
                 let leaf = std::mem::replace(
                     self,
@@ -93,13 +95,19 @@ where
                 if let SequenceTreeNode::Leaf {
                     opid: old_opid,
                     element: old_element,
+                    len: _,
                 } = leaf
                 {
                     let left = Some(Box::new(SequenceTreeNode::Leaf {
                         opid: old_opid,
                         element: old_element,
+                        len: 1,
                     }));
-                    let right = Some(Box::new(SequenceTreeNode::Leaf { opid, element }));
+                    let right = Some(Box::new(SequenceTreeNode::Leaf {
+                        opid,
+                        element,
+                        len: 1,
+                    }));
                     *self = SequenceTreeNode::Node {
                         left,
                         right,
@@ -116,13 +124,21 @@ where
                     if let Some(right) = right {
                         right.insert(index - left_len, opid, element)
                     } else {
-                        *right = Some(Box::new(SequenceTreeNode::Leaf { opid, element }))
+                        *right = Some(Box::new(SequenceTreeNode::Leaf {
+                            opid,
+                            element,
+                            len: 1,
+                        }))
                     }
                 } else {
                     if let Some(left) = left {
                         left.insert(index, opid, element)
                     } else {
-                        *left = Some(Box::new(SequenceTreeNode::Leaf { opid, element }))
+                        *left = Some(Box::new(SequenceTreeNode::Leaf {
+                            opid,
+                            element,
+                            len: 1,
+                        }))
                     }
                 }
             }
@@ -134,6 +150,7 @@ where
             SequenceTreeNode::Leaf {
                 opid: _,
                 element: _,
+                len: _,
             } => {
                 unreachable!("shouldn't be calling remove on a leaf, just a node")
             }
@@ -145,11 +162,15 @@ where
                         if let SequenceTreeNode::Leaf {
                             opid: _,
                             element: _,
+                            len: _,
                         } = &**right_child
                         {
                             let right_child = std::mem::take(right);
-                            if let SequenceTreeNode::Leaf { opid: _, element } =
-                                *right_child.unwrap()
+                            if let SequenceTreeNode::Leaf {
+                                opid: _,
+                                element,
+                                len: _,
+                            } = *right_child.unwrap()
                             {
                                 element
                             } else {
@@ -166,11 +187,15 @@ where
                         if let SequenceTreeNode::Leaf {
                             opid: _,
                             element: _,
+                            len: _,
                         } = &**left_child
                         {
                             let left_child = std::mem::take(left);
-                            if let SequenceTreeNode::Leaf { opid: _, element } =
-                                *left_child.unwrap()
+                            if let SequenceTreeNode::Leaf {
+                                opid: _,
+                                element,
+                                len: _,
+                            } = *left_child.unwrap()
                             {
                                 element
                             } else {
@@ -192,6 +217,7 @@ where
             SequenceTreeNode::Leaf {
                 opid: _,
                 element: old_element,
+                len: _,
             } => std::mem::replace(old_element, element),
             SequenceTreeNode::Node {
                 left,
@@ -218,7 +244,11 @@ where
 
     pub fn get(&self, index: usize) -> Option<(OpId, &T)> {
         match &self {
-            SequenceTreeNode::Leaf { opid, element } => Some((opid.clone(), element)),
+            SequenceTreeNode::Leaf {
+                opid,
+                element,
+                len: _,
+            } => Some((opid.clone(), element)),
             SequenceTreeNode::Node {
                 left,
                 right,
@@ -236,7 +266,11 @@ where
 
     pub fn get_mut(&mut self, index: usize) -> Option<(OpId, &mut T)> {
         match self {
-            SequenceTreeNode::Leaf { opid, element } => Some((opid.clone(), element)),
+            SequenceTreeNode::Leaf {
+                opid,
+                element,
+                len: _,
+            } => Some((opid.clone(), element)),
             SequenceTreeNode::Node {
                 left,
                 right,
