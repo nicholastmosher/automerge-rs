@@ -13,6 +13,7 @@ jobs:
     name: Build binaries
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest]
         rust: [stable, beta, nightly]
@@ -41,6 +42,7 @@ jobs:
           toolchain: ${{ matrix.rust }}
           profile: minimal
           override: true
+          components: rustfmt, clippy
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
