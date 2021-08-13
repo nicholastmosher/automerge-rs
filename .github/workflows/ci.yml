@@ -17,8 +17,9 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         rust: [stable, beta, nightly]
+        node: [12]
         task:
-          - name: Format, Clippy and Docs
+          - name: Format Clippy and Docs
             script: |
               cargo fmt --all -- --check
               cargo clippy --all-targets --all-features -- -D warnings
@@ -46,6 +47,9 @@ jobs:
 
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Install node
+        run: nvm install ${{ matrix.node }}
 
       # Caching for Rust
       - uses: Swatinem/rust-cache@v1
