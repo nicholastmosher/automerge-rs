@@ -10,7 +10,7 @@ on:
 
 jobs:
   build:
-    name: Build binaries
+    name: ${{ matrix.task.name }} - ${{ matrix.rust }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -49,6 +49,8 @@ jobs:
 
       # Caching for Rust
       - uses: Swatinem/rust-cache@v1
+        with:
+          key: ${{ matrix.rust }}-${{ matrix.task.name }}
 
       - name: Rust ${{ matrix.rust }} - ${{ matrix.task.name }}
         run: ${{ matrix.task.script }}
