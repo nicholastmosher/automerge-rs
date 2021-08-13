@@ -6,3 +6,9 @@ libtest.rmeta
 .direnv/
 result
 result-lib
+
+# Editors
+.idea/
+
+# Mac
+.DS_Store

@@ -1,0 +1,48 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build binaries
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        rust: [stable, beta, nightly]
+        task:
+          - name: Format, Clippy and Docs
+            script: |
+              cargo fmt --all -- --check
+              cargo clippy --all-targets --all-features -- -D warnings
+              cargo doc --workspace --all-features
+          - name: Build and Test
+            script: |
+              cargo build --all-targets --workspace
+              cargo test --workspace
+          - name: Wasm and Interop
+            script: |
+              wasm-pack test --node automerge-frontend
+              cd automerge-backend-wasm
+              yarn dev
+              yarn test:js
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Install Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ matrix.rust }}
+          profile: minimal
+          override: true
+
+      # Caching for Rust
+      - uses: Swatinem/rust-cache@v1
+
+      - name: Rust ${{ matrix.rust }} - ${{ matrix.task.name }}
+        run: ${{ matrix.task.script }}
