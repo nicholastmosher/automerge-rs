@@ -17,7 +17,7 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         rust: [stable, beta, nightly]
-        node: [12]
+        node: ['12']
         task:
           - name: Format Clippy and Docs
             script: |
@@ -48,8 +48,10 @@ jobs:
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
 
-      - name: Install node
-        run: nvm install ${{ matrix.node }}
+      - name: Use Node.js ${{ matrix.node }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node }}
 
       # Caching for Rust
       - uses: Swatinem/rust-cache@v1
