@@ -19,16 +19,19 @@ jobs:
         rust: [stable, beta, nightly]
         node: ['12']
         task:
-          - name: Format Clippy and Docs
+          - name: Format, Clippy and Docs
+            key: format-clippy-docs
             script: |
               cargo fmt --all -- --check
               cargo clippy --all-targets --all-features -- -D warnings
               cargo doc --workspace --all-features
           - name: Build and Test
+            key: build-test
             script: |
               cargo build --all-targets --workspace
               cargo test --workspace
           - name: Wasm and Interop
+            key: wasm-interop
             script: |
               wasm-pack test --node automerge-frontend
               cd automerge-backend-wasm
@@ -58,7 +61,8 @@ jobs:
       # Caching for Rust
       - uses: Swatinem/rust-cache@v1
         with:
-          key: ${{ matrix.rust }}-${{ matrix.task.name }}
+          cache-on-failure: true
+          key: ${{ matrix.rust }}-${{ matrix.task.key }}
 
       - name: Rust ${{ matrix.rust }} - ${{ matrix.task.name }}
         run: ${{ matrix.task.script }}

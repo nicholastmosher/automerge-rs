@@ -14,7 +14,7 @@ fn import_stdin() {
     let json_bytes = serde_json::to_string_pretty(&initial_state_json).unwrap();
 
     let no_pipe_no_file = cmd!(bin, "import").stdin_bytes(json_bytes.clone()).run();
-
+    println!("No pipe no file RESULT: {:#?}", no_pipe_no_file);
     assert!(no_pipe_no_file.is_err());
 
     let pipe_no_file = cmd!(bin, "import")
@@ -39,6 +39,7 @@ fn export_stdout() {
     let bin = env!("CARGO_BIN_EXE_automerge");
     let no_pipe_no_file = cmd!(bin, "export").stdout_capture().run();
 
+    println!("No pipe no file RESULT: {:#?}", no_pipe_no_file);
     assert!(no_pipe_no_file.is_err());
 }
 
